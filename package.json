@@ -2,7 +2,7 @@
   "name": "codemarket-live",
   "displayName": "Code Market Live",
   "description": "Edit Code Market scripts in VS Code using the live game bridge.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "codemarketmodding",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other", "Programming Languages"],

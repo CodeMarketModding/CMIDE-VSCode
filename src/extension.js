@@ -1,6 +1,6 @@
 'use strict';
 const vscode=require('vscode');const path=require('node:path');
-const {Bridge}=require('./bridge');const {GameFiles,SCHEME}=require('./gameFiles');const {Explorer}=require('./explorer');const {Reference}=require('./reference');const {ClassMap}=require('./classMap');const {CompletionCache}=require('./completionCache');const lookup=require('./lookup');const localCompletion=require('./localCompletion');
+const {Bridge}=require('./bridge');const {GameFiles,SCHEME}=require('./gameFiles');const {Explorer}=require('./explorer');const {GameDragDrop}=require('./dragDrop');const {Reference}=require('./reference');const {ClassMap}=require('./classMap');const {CompletionCache}=require('./completionCache');const lookup=require('./lookup');const localCompletion=require('./localCompletion');
 
 function activate(context){
   const config=()=>vscode.workspace.getConfiguration('codemarket');
@@ -12,6 +12,7 @@ function activate(context){
   const activeDocs=()=>vscode.workspace.textDocuments.filter(d=>d.uri.scheme===SCHEME);
   const open=async node=>{if(!node?.path)return;const uri=files.uri(node.path);let doc=await vscode.workspace.openTextDocument(uri);doc=await vscode.languages.setTextDocumentLanguage(doc,bridge.language==='java'?'codemarket-java':'codemarket-csharp');await vscode.window.showTextDocument(doc,{preview:false});};
   const updateProject=r=>{files.setProject(r);explorer.refresh();};
+  files.onProjectChanged=()=>explorer.refresh();
   register('codemarket.connect',async()=>{
     if(busy)return;if(activeDocs().some(d=>d.isDirty))throw new Error('Save or copy all unsynced Code Market edits before reconnecting.');
     busy=true;completionCache.reset();status.text='$(sync~spin) Code Market: Connecting';try{const r=await bridge.connect();updateProject(r);files.conflicts.clear();reference.page=null;reference.signature='';referenceDocs.clear();updateStatus();
@@ -35,7 +36,7 @@ function activate(context){
     if((current.text||'')!==baseline)throw new Error('The game version differs from the version you edited. Copy your changes, then reopen the script to resolve the conflict.');
     files.conflicts.delete(key);if(doc.isDirty && !await doc.save())throw new Error('Sync failed; your editor text is still open.');});
   register('codemarket.gotoSymbol',async(uri,offset)=>{const doc=await vscode.workspace.openTextDocument(uri),editor=await vscode.window.showTextDocument(doc);const pos=doc.positionAt(offset);editor.selection=new vscode.Selection(pos,pos);editor.revealRange(new vscode.Range(pos,pos),vscode.TextEditorRevealType.InCenter);});
-  context.subscriptions.push(files,explorer,classMap,status,log,vscode.workspace.registerFileSystemProvider(SCHEME,files,{isCaseSensitive:true}),vscode.window.registerTreeDataProvider('codemarket.explorer',explorer),vscode.window.registerTreeDataProvider('codemarket.classMap',classMap),vscode.window.registerWebviewViewProvider('codemarket.referenceView',reference));
+  context.subscriptions.push(files,explorer,classMap,status,log,vscode.workspace.registerFileSystemProvider(SCHEME,files,{isCaseSensitive:true}),vscode.window.createTreeView('codemarket.explorer',{treeDataProvider:explorer,dragAndDropController:new GameDragDrop(files)}),vscode.window.registerTreeDataProvider('codemarket.classMap',classMap),vscode.window.registerWebviewViewProvider('codemarket.referenceView',reference));
   const gameSelector={scheme:SCHEME};
   const completion=async(doc,pos,token,ctx)=>{if(!bridge.session)return;let gamePath;try{gamePath=files.gamePath(doc.uri);}catch{return;}
     const version=doc.version,text=doc.getText(),caret=doc.offsetAt(pos),forced=ctx.triggerKind===vscode.CompletionTriggerKind.Invoke;

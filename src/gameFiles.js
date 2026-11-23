@@ -10,7 +10,8 @@ class GameFiles {
   setProject(response){this.files=response.files||[];this.folders=response.folders||[];}
   uri(path){return vscode.Uri.from({scheme:SCHEME,path:`/${this.bridge.session}/${this.bridge.world}/${path}`});}
   gamePath(uri){
-    const prefix=`/${this.bridge.session}/${this.bridge.world}/`;
+    const root=`/${this.bridge.session}/${this.bridge.world}`,prefix=root+'/';
+    if(this.bridge.session&&uri.scheme===SCHEME&&uri.path===root)return '';
     if(!this.bridge.session||uri.scheme!==SCHEME||!uri.path.startsWith(prefix))throw vscode.FileSystemError.Unavailable('This document belongs to another game session or world. Reconnect and reopen it; copy unsynced edits first.');
     return uri.path.slice(prefix.length);
   }
@@ -35,7 +36,22 @@ class GameFiles {
   }
   createDirectory(){throw vscode.FileSystemError.NoPermissions('Use Code Market: New Folder.');}
   delete(){throw vscode.FileSystemError.NoPermissions('Use Code Market: Delete Script.');}
-  rename(){throw vscode.FileSystemError.NoPermissions('Use Code Market: Rename Script.');}
+  async rename(oldUri,newUri){
+    const oldPath=this.gamePath(oldUri),newPath=this.gamePath(newUri),oldKey=oldUri.toString(),newKey=newUri.toString();
+    if(!this.files.includes(oldPath))throw vscode.FileSystemError.FileNotFound(oldUri);
+    const basename=p=>p.slice(p.lastIndexOf('/')+1),parent=p=>p.includes('/')?p.slice(0,p.lastIndexOf('/')):'';
+    if(basename(oldPath)!==basename(newPath))throw vscode.FileSystemError.NoPermissions('Use Code Market: Rename Script to rename a file.');
+    const destination=parent(newPath);if(destination&&!this.folders.includes(destination))throw vscode.FileSystemError.FileNotFound(newUri);
+    if(parent(oldPath)===destination)return;
+    if(this.files.some(p=>p.toLowerCase()===newPath.toLowerCase())||this.folders.some(p=>p.toLowerCase()===newPath.toLowerCase()))throw vscode.FileSystemError.FileExists(newUri);
+    const open=vscode.workspace.textDocuments.find(d=>d.uri.toString()===oldKey);
+    if(open?.isDirty||this.conflicts.has(oldKey))throw vscode.FileSystemError.Unavailable('Save or copy unsynced edits before moving the script.');
+    const expected=this.baselines.get(oldKey)??(await this.bridge.request('read',{path:oldPath})).text??'';
+    if(open?.isDirty)throw vscode.FileSystemError.Unavailable('The script has unsynced edits. Save it before moving.');
+    const result=await this.bridge.request('move',{path:oldPath,name:destination,expected});
+    if(result.path!==newPath)throw vscode.FileSystemError.Unavailable('The game returned an unexpected destination. Refresh the Explorer.');
+    this.setProject(result);this.baselines.set(newKey,result.text??expected);this.baselines.delete(oldKey);this.conflicts.delete(oldKey);this.times.set(newKey,Date.now());this.onProjectChanged?.();
+  }
   async pollDocument(doc){
     if(doc.uri.scheme!==SCHEME||doc.isDirty||this.conflicts.has(doc.uri.toString()))return;
     let path;try {path=this.gamePath(doc.uri);}catch{return;}
