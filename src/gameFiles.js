@@ -35,7 +35,43 @@ class GameFiles {
     catch(e){this.conflicts.add(key);throw vscode.FileSystemError.Unavailable(e.message+' Your editor text has been preserved.');}
   }
   createDirectory(){throw vscode.FileSystemError.NoPermissions('Use Code Market: New Folder.');}
-  delete(){throw vscode.FileSystemError.NoPermissions('Use Code Market: Delete Script.');}
+  delete(){throw vscode.FileSystemError.NoPermissions('Use Delete Script or Delete Folder in the Code Market sidebar.');}
+  async deleteFolder(uri) {
+    const path = this.gamePath(uri);
+    if (!path || !this.folders.includes(path)) throw vscode.FileSystemError.FileNotFound(uri);
+    if (!this.bridge.canDeleteFolders) throw new Error('Folder deletion requires CMIDE Bridge 1.0.11 or newer.');
+
+    const contains = candidate => candidate.scheme === SCHEME && candidate.path.startsWith(uri.path + '/');
+    const checkForUnsyncedEdits = () => {
+      this.gamePath(uri);
+      if (vscode.workspace.textDocuments.some(doc => doc.isDirty && contains(doc.uri))) {
+        throw new Error('Save or copy unsynced edits in this folder before deleting it.');
+      }
+      return false;
+    };
+    const preview = await this.bridge.request('previewFolderDeletion', {path}, checkForUnsyncedEdits);
+    const fileCount = preview.files.length;
+    const folderCount = preview.folders.length - 1;
+    const detail = `This permanently deletes ${fileCount} ${fileCount === 1 ? 'script' : 'scripts'} and ${folderCount} ${folderCount === 1 ? 'subfolder' : 'subfolders'}. Running scripts in this folder will stop.`;
+    const choice = await vscode.window.showWarningMessage(`Delete folder '${path}'?`, {modal: true, detail}, 'Delete');
+    if (choice !== 'Delete') return;
+
+    checkForUnsyncedEdits();
+    const result = await this.bridge.request('deleteFolder', {path, expected: preview.folderSnapshot}, checkForUnsyncedEdits);
+    this.setProject(result);
+    this.onProjectChanged?.();
+    const dirty = new Set(vscode.workspace.textDocuments.filter(doc => doc.isDirty && contains(doc.uri)).map(doc => doc.uri.toString()));
+    const changes = [];
+    for (const deletedPath of [...preview.files, ...preview.folders]) {
+      const deletedUri = this.uri(deletedPath);
+      const key = deletedUri.toString();
+      this.baselines.delete(key);
+      this.conflicts.delete(key);
+      this.times.delete(key);
+      if (!dirty.has(key)) changes.push({type: vscode.FileChangeType.Deleted, uri: deletedUri});
+    }
+    this.emitter.fire(changes);
+  }
   async rename(oldUri,newUri){
     const oldPath=this.gamePath(oldUri),newPath=this.gamePath(newUri),oldKey=oldUri.toString(),newKey=newUri.toString();
     if(!this.files.includes(oldPath))throw vscode.FileSystemError.FileNotFound(oldUri);
@@ -56,7 +92,9 @@ class GameFiles {
     if(doc.uri.scheme!==SCHEME||doc.isDirty||this.conflicts.has(doc.uri.toString()))return;
     let path;try {path=this.gamePath(doc.uri);}catch{return;}
     const key=doc.uri.toString(),baseline=this.baselines.get(key);if(baseline===undefined)return;
-    const r=await this.bridge.request('read',{path});
+    let r;
+    try {r=await this.bridge.request('read',{path});}
+    catch(error){if(!this.baselines.has(key))return;throw error;}
     if(!doc.isDirty && this.baselines.get(key)===baseline && (r.text||'')!==baseline){this.times.set(key,Date.now());this.emitter.fire([{type:vscode.FileChangeType.Changed,uri:doc.uri}]);}
   }
 }

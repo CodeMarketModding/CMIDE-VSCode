@@ -29,6 +29,7 @@ function activate(context){
     const expected=await ensureClean(node);const r=await bridge.request('rename',{path:node.path,name:name.trim(),expected});updateProject(r);await open({path:r.path});});
   register('codemarket.delete',async node=>{if(!node||node.folder)return;const expected=await ensureClean(node);const choice=await vscode.window.showWarningMessage(`Delete '${node.path}'? The game stops it if it is running.`,{modal:true},'Delete');
     if(choice!=='Delete')return;updateProject(await bridge.request('delete',{path:node.path,expected}));});
+  register('codemarket.deleteFolder',async node=>{if(node?.folder&&node.uri)await files.deleteFolder(node.uri);});
   register('codemarket.reference',async()=>{await vscode.commands.executeCommand('codemarket.referenceView.focus');if(bridge.session)await reference.refresh();});
   register('codemarket.openReference',async id=>{if(typeof id!=='string')return;await vscode.commands.executeCommand('codemarket.referenceView.focus');await reference.open(id);});
   register('codemarket.retrySync',async()=>{const doc=vscode.window.activeTextEditor?.document;if(!doc||doc.uri.scheme!==SCHEME)return;

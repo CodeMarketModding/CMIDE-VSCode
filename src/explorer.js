@@ -12,7 +12,7 @@ class Explorer {
   getChildren(node){
     if(!this.files.bridge.session)return [];
     const prefix=node?.path?node.path+'/':'',result=[];
-    for(const [paths,folder] of [[this.files.folders,true],[this.files.files,false]])for(const path of paths){if(!path.startsWith(prefix))continue;const name=path.slice(prefix.length);if(name&&!name.includes('/'))result.push({name,path,folder});}
+    for(const [paths,folder] of [[this.files.folders,true],[this.files.files,false]])for(const path of paths){if(!path.startsWith(prefix))continue;const name=path.slice(prefix.length);if(name&&!name.includes('/'))result.push({name,path,folder,uri:this.files.uri(path)});}
     return result.sort((a,b)=>Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name));
   }
 }

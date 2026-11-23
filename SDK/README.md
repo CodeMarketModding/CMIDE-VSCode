@@ -5,4 +5,6 @@
 
 These are source-level reference stubs, not runtime implementations. Members throw if executed. They describe the complete extracted API, including commands a particular world may not have unlocked; they do not change the game's unlocks.
 
+The C# and Java game API stubs were checked against the `6829aa5b43d0` game assembly snapshot. The extension uses live game results for unlocked-world completion; these local stubs are unfiltered.
+
 For game scripts, the IDE requests completion metadata from the game's interpreter for the current world. A separate in-memory index for the active world language caches common API completions and refreshes about every ten seconds. Other contexts fall back to the game. For local C# and Java documents, the IDE reads the corresponding reference stubs and offers basic completions without checking a world's unlocks.

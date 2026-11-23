@@ -4,11 +4,12 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 class Bridge {
-  constructor(directory, timeout = 6000) { this.directory=directory; this.timeout=timeout; this.session=null; this.world=null; this.language=null; this.queue=Promise.resolve(); }
+  constructor(directory, timeout = 6000) { this.directory=directory; this.timeout=timeout; this.session=null; this.world=null; this.language=null; this.canDeleteFolders=false; this.queue=Promise.resolve(); }
   async connect() {
     const r=await this.send({command:'list'});
-    if(!r.session || !Number.isInteger(r.world) || !['csharp','java'].includes(r.language)) throw new Error('The game bridge returned an invalid session.');
-    this.session=r.session;this.world=r.world;this.language=r.language;return r;
+    if(!r.session || !Number.isInteger(r.world)) throw new Error('The game bridge returned an invalid session.');
+    if(!['csharp','java'].includes(r.language)) throw new Error(`This world uses '${r.language}', which Code Market Live does not support yet. Open a C# or Java world.`);
+    this.session=r.session;this.world=r.world;this.language=r.language;this.canDeleteFolders=r.canDeleteFolders===true;return r;
   }
   request(command, params={}, isCancelled=()=>false) {
     if(!this.session)return Promise.reject(new Error('Connect to a game world first.'));
