@@ -1,0 +1,7 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
+const {Bridge}=require('../src/bridge');
+test('serializes requests, checks the world, and clears IPC files',async()=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'cmide-bridge-'));let requests=[];
+  const loop=setInterval(async()=>{for(const name of await fs.readdir(dir)){if(!name.endsWith('.request'))continue;const input=path.join(dir,name);let q;try{q=JSON.parse(await fs.readFile(input,'utf8'));await fs.unlink(input);}catch{continue;}requests.push(q.command);const response=q.command==='list'?{ok:true,session:'abc',world:6,language:'csharp',files:[],folders:[]}:{ok:true,session:'abc',world:6,text:'example'};await fs.writeFile(input.replace('.request','.response'),JSON.stringify(response));}},10);
+  try{const b=new Bridge(dir,1000);await b.connect();const a=await Promise.all([b.request('read',{path:'one'}),b.request('read',{path:'two'})]);assert.equal(a[1].text,'example');assert.deepEqual(requests,['list','read','read']);assert.deepEqual(await fs.readdir(dir),[]);}finally{clearInterval(loop);await fs.rm(dir,{recursive:true,force:true});}});
+test('times out without leaving a pending request',async()=>{const dir=await fs.mkdtemp(path.join(os.tmpdir(),'cmide-timeout-'));try{const b=new Bridge(dir,80);await assert.rejects(()=>b.connect(),/did not respond/);assert.deepEqual(await fs.readdir(dir),[]);}finally{await fs.rm(dir,{recursive:true,force:true});}});

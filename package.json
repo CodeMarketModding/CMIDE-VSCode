@@ -1,0 +1,45 @@
+{
+  "name": "codemarket-live",
+  "displayName": "Code Market Live",
+  "description": "Edit Code Market scripts in VS Code using the live game bridge.",
+  "version": "0.1.1",
+  "publisher": "codemarketmodding",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Programming Languages"],
+  "main": "./src/extension.js",
+  "activationEvents": ["onStartupFinished", "onFileSystem:codemarket"],
+  "contributes": {
+    "commands": [
+      {"command":"codemarket.connect","title":"Code Market: Connect / Refresh","icon":"$(refresh)"},
+      {"command":"codemarket.open","title":"Code Market: Open Script"},
+      {"command":"codemarket.newFile","title":"Code Market: New Script","icon":"$(new-file)"},
+      {"command":"codemarket.newFolder","title":"Code Market: New Folder","icon":"$(new-folder)"},
+      {"command":"codemarket.rename","title":"Code Market: Rename Script","icon":"$(edit)"},
+      {"command":"codemarket.delete","title":"Code Market: Delete Script","icon":"$(trash)"},
+      {"command":"codemarket.reference","title":"Code Market: Show Reference"},
+      {"command":"codemarket.retrySync","title":"Code Market: Retry Sync"},
+      {"command":"codemarket.openReference","title":"Code Market: Open Reference Entry"}
+    ],
+    "viewsContainers": {"activitybar":[{"id":"codemarket","title":"Code Market","icon":"media/icon.svg"}]},
+    "views":{"codemarket":[{"id":"codemarket.explorer","name":"Game Scripts"},{"id":"codemarket.referenceView","name":"Reference","type":"webview"},{"id":"codemarket.classMap","name":"Class Map"}]},
+    "menus":{"view/title":[
+      {"command":"codemarket.connect","when":"view == codemarket.explorer","group":"navigation@1"},
+      {"command":"codemarket.newFile","when":"view == codemarket.explorer","group":"navigation@2"},
+      {"command":"codemarket.newFolder","when":"view == codemarket.explorer","group":"navigation@3"}],
+      "view/item/context":[
+        {"command":"codemarket.newFile","when":"view == codemarket.explorer && viewItem == folder","group":"inline@1"},
+        {"command":"codemarket.newFolder","when":"view == codemarket.explorer && viewItem == folder","group":"inline@2"},
+        {"command":"codemarket.rename","when":"view == codemarket.explorer && viewItem == file","group":"inline@3"},
+        {"command":"codemarket.delete","when":"view == codemarket.explorer && viewItem == file","group":"inline@4"}]},
+    "languages":[{"id":"codemarket-csharp","aliases":["Code Market C#"],"configuration":"./language-configuration.json"},{"id":"codemarket-java","aliases":["Code Market Java"],"configuration":"./language-configuration.json"}],
+    "grammars":[{"language":"codemarket-csharp","scopeName":"source.codemarket.cs","path":"./syntaxes/csharp.json"},{"language":"codemarket-java","scopeName":"source.codemarket.java","path":"./syntaxes/java.json"}],
+    "configurationDefaults":{
+      "[codemarket-csharp]":{"editor.inlineSuggest.enabled":false,"editor.wordBasedSuggestions":"off","editor.suggest.showWords":false,"editor.suggest.showSnippets":false},
+      "[codemarket-java]":{"editor.inlineSuggest.enabled":false,"editor.wordBasedSuggestions":"off","editor.suggest.showWords":false,"editor.suggest.showSnippets":false}
+    },
+    "configuration":{"title":"Code Market","properties":{"codemarket.bridgeDirectory":{"type":"string","default":"","description":"Override the bridge folder. Leave empty to use the current user's local application data."},"codemarket.autoSync":{"type":"boolean","default":true,"description":"Automatically synchronize edits to the game."},"codemarket.localCompletions":{"type":"boolean","default":false,"description":"Offer unfiltered Code Market SDK completions in local C# and Java files."}}}
+  },
+  "scripts":{"test":"node --test test/*.test.js"},
+  "repository":{"type":"git","url":"https://github.com/CodeMarketModding/CMIDE-VSCode"},
+  "license":"UNLICENSED"
+}

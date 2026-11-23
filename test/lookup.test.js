@@ -1,0 +1,8 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path');
+const lookup=require('../src/lookup'),local=require('../src/localCompletion');
+const entries=['type.Robot','type.Order','type.Direction','type.Product','robot.move','order.getRemaining','goods.tomato','lang.variables','lang.print','lang.math'].map(id=>({id}));
+test('resolves only unlocked symbols and keeps the exact symbol range',()=>{const code='robot.Move(Direction.Up);';assert.deepEqual(lookup.find(code,7,entries),{id:'robot.move',start:6,end:10});assert.equal(lookup.find(code,1,entries).id,'type.Robot');assert.equal(lookup.find(code,22,entries).id,'type.Direction');assert.equal(lookup.find('robot.Locked()',7,entries),null);});
+test('resolves declared and inferred variables and ignores comments',()=>{let code='Order order = robot.TakeOrder(); order.GetRemaining(Product.Tomato);';assert.equal(lookup.find(code,code.indexOf('GetRemaining'),entries).id,'order.getRemaining');assert.equal(lookup.find(code,code.indexOf('Tomato'),entries).id,'goods.tomato');
+  code='var basket = robot.TakeOrder(); basket.GetRemaining(Product.Tomato);';assert.equal(lookup.find(code,code.indexOf('GetRemaining'),entries).id,'order.getRemaining');assert.equal(lookup.find('// robot.Move()',10,entries),null);assert.equal(lookup.find('"robot.Move()"',8,entries),null);});
+test('local SDK offers language-specific unfiltered completions',()=>{const root=path.join(__dirname,'..');for(const [lang,typed,expected] of [['csharp','robot.M','Move'],['java','robot.m','move']]){const map=local.load(root,lang),r=local.complete(map,typed,typed.length);assert.ok(r.items.some(x=>x.label===expected));}});
